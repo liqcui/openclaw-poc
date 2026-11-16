@@ -1,0 +1,394 @@
+{
+  "agents": {
+    "entries": {
+      "main": {
+        "name": "main",
+        "workspace": "/home/node/.openclaw/workspace",
+        "agentDir": "/home/node/.openclaw/agents/main/agent",
+        "identity": {
+          "name": "main"
+        }
+      }
+    },
+    "defaults": {
+      "workspace": "/home/node/.openclaw/workspace",
+      "model": {
+        "primary": "deepseek/deepseek-v4-flash"
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "deepseek": {
+        "baseUrl": "${DEEPSEEK_BASE_URL:-https://api.deepseek.com}",
+        "api": "openai-completions",
+        "apiKey": "${DEEPSEEK_API_KEY:-}",
+        "models": [
+          {
+            "id": "deepseek-v4-flash",
+            "name": "DeepSeek V4.1 Flash",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 1000000,
+            "maxTokens": 384000,
+            "cost": {
+              "input": 0.3,
+              "output": 1.2,
+              "cacheRead": 0.006,
+              "cacheWrite": 0
+            },
+            "compat": {
+              "requiresReasoningContentOnAssistantMessages": true,
+              "defaultThinkingLevel": "high"
+            }
+          },
+          {
+            "id": "deepseek-v4-pro",
+            "name": "DeepSeek V4 Pro",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 1000000,
+            "maxTokens": 384000,
+            "cost": {
+              "input": 1.32,
+              "output": 3.96,
+              "cacheRead": 0.044,
+              "cacheWrite": 0
+            },
+            "compat": {
+              "requiresReasoningContentOnAssistantMessages": true,
+              "defaultThinkingLevel": "high"
+            }
+          }
+        ]
+      },
+      "qwen": {
+        "baseUrl": "${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}",
+        "api": "openai-completions",
+        "apiKey": "${QWEN_API_KEY:-}",
+        "models": [
+          {
+            "id": "qwen3.8-max",
+            "name": "Qwen3.8 Max",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 1000000,
+            "maxTokens": 131072,
+            "compat": {
+              "supportsReasoningEffort": true,
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "xhigh"
+              ],
+              "reasoningEffortMap": {
+                "minimal": "low",
+                "high": "xhigh",
+                "max": "xhigh"
+              }
+            }
+          },
+          {
+            "id": "qwen3.8-flash",
+            "name": "Qwen3.8 Flash",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 1000000,
+            "maxTokens": 131072,
+            "compat": {
+              "supportsReasoningEffort": true,
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "xhigh"
+              ],
+              "reasoningEffortMap": {
+                "minimal": "low",
+                "high": "xhigh",
+                "max": "xhigh"
+              }
+            }
+          },
+          {
+            "id": "qwen3.5-plus",
+            "name": "Qwen3.5 Plus",
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 1000000,
+            "maxTokens": 65536
+          }
+        ]
+      },
+      "zai": {
+        "baseUrl": "${ZAI_BASE_URL:-https://open.bigmodel.cn/api/paas/v4}",
+        "api": "openai-completions",
+        "apiKey": "${ZAI_API_KEY:-}",
+        "models": [
+          {
+            "id": "glm-5.3",
+            "name": "GLM-5.3",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 1048576,
+            "maxTokens": 131072
+          },
+          {
+            "id": "glm-5.3-flash",
+            "name": "GLM-5.3-Flash",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 1048576,
+            "maxTokens": 131072
+          },
+          {
+            "id": "glm-5.2",
+            "name": "GLM-5.2",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 1000000,
+            "maxTokens": 131072
+          }
+        ]
+      },
+      "moonshot": {
+        "baseUrl": "${MOONSHOT_BASE_URL:-https://api.moonshot.cn/v1}",
+        "api": "openai-completions",
+        "apiKey": "${MOONSHOT_API_KEY:-}",
+        "models": [
+          {
+            "id": "kimi-k3",
+            "name": "Kimi K3",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image",
+              "video"
+            ],
+            "contextWindow": 1048576,
+            "maxTokens": 1048576,
+            "compat": {
+              "requiresReasoningContentOnAssistantMessages": true,
+              "supportsReasoningEffort": true,
+              "supportedReasoningEfforts": [
+                "max"
+              ],
+              "defaultThinkingLevel": "max"
+            }
+          },
+          {
+            "id": "kimi-k2.7-code",
+            "name": "Kimi K2.7 Code",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 262144,
+            "maxTokens": 262144,
+            "compat": {
+              "requiresReasoningContentOnAssistantMessages": true,
+              "defaultThinkingLevel": "low"
+            }
+          }
+        ]
+      },
+      "volcengine": {
+        "baseUrl": "${VOLCANO_ENGINE_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}",
+        "api": "openai-completions",
+        "apiKey": "${VOLCANO_ENGINE_API_KEY:-}",
+        "models": [
+          {
+            "id": "doubao-seed-2-1-pro-260628",
+            "name": "Doubao Seed 2.1 Pro",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 256000,
+            "maxTokens": 256000
+          },
+          {
+            "id": "doubao-seed-2-1-turbo-260628",
+            "name": "Doubao Seed 2.1 Turbo",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 256000,
+            "maxTokens": 256000
+          },
+          {
+            "id": "deepseek-v4-flash-260425",
+            "name": "DeepSeek V4 Flash (Ark)",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 1024000,
+            "maxTokens": 384000
+          }
+        ]
+      },
+      "tencent-tokenhub": {
+        "baseUrl": "${TOKENHUB_BASE_URL:-https://tokenhub.tencentmaas.com/v1}",
+        "api": "openai-completions",
+        "apiKey": "${TOKENHUB_API_KEY:-}",
+        "models": [
+          {
+            "id": "hy4",
+            "name": "Hunyuan Hy4",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 1024000,
+            "maxTokens": 64000,
+            "compat": {
+              "supportsUsageInStreaming": true,
+              "supportsReasoningEffort": true,
+              "supportedReasoningEfforts": [
+                "none",
+                "high"
+              ],
+              "defaultThinkingLevel": "high"
+            }
+          },
+          {
+            "id": "hy3",
+            "name": "Hunyuan Hy3",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 256000,
+            "maxTokens": 128000
+          }
+        ]
+      },
+      "stepfun": {
+        "baseUrl": "${STEPFUN_BASE_URL:-https://api.stepfun.ai/v1}",
+        "api": "openai-completions",
+        "apiKey": "${STEPFUN_API_KEY:-}",
+        "models": [
+          {
+            "id": "step-3.7-flash",
+            "name": "Step 3.7 Flash",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 262144,
+            "maxTokens": 262144
+          },
+          {
+            "id": "step-3.5-flash",
+            "name": "Step 3.5 Flash",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 262144,
+            "maxTokens": 65536
+          }
+        ]
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "anthropic": {
+        "config": {
+          "sessionCatalog": {
+            "enabled": false
+          }
+        }
+      },
+      "codex": {
+        "config": {
+          "sessionCatalog": {
+            "enabled": false
+          }
+        }
+      },
+      "stepfun": {
+        "enabled": true
+      },
+      "deepseek": {
+        "enabled": true
+      }
+    }
+  },
+  "meta": {
+    "migrations": {
+      "modelPolicyAllowlist": true,
+      "utilityModelSeparation": true,
+      "webhookListeners": true
+    },
+    "lastTouchedVersion": "2026.11.4"
+  },
+  "wizard": {
+    "securityAcknowledgedAt": "2026-11-16T13:46:58.521Z",
+    "lastRunAt": "2026-11-16T14:07:19.306Z",
+    "lastRunVersion": "2026.11.4",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "telemetry": {
+    "enabled": false,
+    "consentedAt": "2026-11-16T13:46:59.231Z"
+  },
+  "gateway": {
+    "mode": "local",
+    "port": 18789,
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": {
+        "source": "env",
+        "provider": "default",
+        "id": "OPENCLAW_GATEWAY_TOKEN"
+      }
+    },
+    "tailscale": {
+      "mode": "off"
+    }
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "skills": {
+    "entries": {
+      "openai-whisper-api": {
+        "enabled": false
+      },
+      "sherpa-onnx-tts": {
+        "enabled": false
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# 本地密钥/状态文件：绝不入库
+.env
+.env.*
+!.env.example
+!.env.models.example
+
+# 编辑器/临时文件
+*.swp
+*.tmp.*

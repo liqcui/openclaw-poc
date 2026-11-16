@@ -1,0 +1,56 @@
+# 本机部署用的最小 compose 文件（与仓库自带 docker-compose.yml 并存，不改动仓库文件）。
+# 启动：docker compose -f docker-compose.yml up -d
+# 说明见 CN-MODELS-DEPLOY.md
+services:
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    init: true
+    restart: unless-stopped
+    # 便于容器访问宿主机上的本地模型服务 / 代理
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      # 只绑 loopback：对外用 SSH 隧道或反代，别直接开公网
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+    env_file:
+      # 国产模型密钥（占位符，填好即生效）；不存在时忽略
+      - path: .env.models
+        required: false
+    environment:
+      HOME: /home/node
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      OPENCLAW_GATEWAY_PORT: "18789"
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR:-${HOME:-/tmp}/.openclaw}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR:-${HOME:-/tmp}/.openclaw/workspace}:/home/node/.openclaw/workspace
+    command: ["node", "dist/index.js", "gateway", "--bind", "${OPENCLAW_GATEWAY_BIND:-lan}", "--port", "18789"]
+    # 镜像默认健康检查间隔 180s，健康状态会滞后数分钟；这里收紧到 15s
+    healthcheck:
+      test: ["CMD", "node", "dist/docker-healthcheck.js"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  openclaw-cli:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    # 与 Gateway 共享网络与 PID 命名空间，CLI 里的 localhost:18789 和共享状态文件才可用
+    network_mode: "service:openclaw-gateway"
+    pid: "service:openclaw-gateway"
+    init: true
+    stdin_open: true
+    tty: true
+    env_file:
+      - path: .env.models
+        required: false
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      BROWSER: echo
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR:-${HOME:-/tmp}/.openclaw}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR:-${HOME:-/tmp}/.openclaw/workspace}:/home/node/.openclaw/workspace
+    entrypoint: ["node", "dist/index.js"]
+    depends_on:
+      - openclaw-gateway
