@@ -25,11 +25,15 @@ DEEPSEEK_API_KEY=sk-xxx ./deploy.sh
 
 - 检查 Docker 与 Compose v2
 - 缺失时创建 `.env` 并生成 `OPENCLAW_GATEWAY_TOKEN`
-- 缺失时创建 `.env.models` 占位符；命令行传入的 `*_API_KEY` 会写入该文件
+- 缺失时创建 `.env.models` 占位符；命令行传入的 `*_API_KEY` / `*_BASE_URL` 会写入该文件
+- 自动创建配置目录、工作区、Skills 目录，并打印 `已创建` / `已存在`
 - 首次运行写入 `config/openclaw.json.example` 到运行时配置目录（`--force-config` 可覆盖）
-- 修正配置目录属主（容器内 uid 1000）
+- 修正目录属主（容器内 uid 1000）
 - `docker compose up -d`，`.env.models` 内容变化时自动 `--force-recreate`
-- 等待 Gateway 就绪（直接探测 `/healthz`；Docker 健康检查间隔已从镜像默认的 180s 收紧到 15s）并打印访问方式
+- 等待 Gateway 就绪（直接探测 `/healthz`；Docker 健康检查间隔已从镜像默认的 180s 收紧到 15s）
+- 打印汇总：目录路径、Gateway 地址、Gateway token、当前模型、已配置 Key 数量
+
+token 在交互终端显示；重定向/CI 输出中自动显示为 `********`，可用 `OPENCLAW_DEPLOY_SHOW_TOKEN=1|0` 强制显示或隐藏。
 
 选项：`--prepare-only`（只准备不启动）、`--force-recreate`、`--force-config`；健康检查超时可用 `OPENCLAW_DEPLOY_HEALTH_TIMEOUT=<秒>` 调整（默认 240）。
 
@@ -62,6 +66,16 @@ ssh -L 18789:127.0.0.1:18789 <user>@<host>
 ```
 
 Dashboard 登录 token 在 `.env` 的 `OPENCLAW_GATEWAY_TOKEN`（容器内通过环境变量读取）。
+
+### 1.1 宿主机挂载目录
+
+| 内容 | 宿主机 | 容器内 | 变量 |
+| --- | --- | --- | --- |
+| 配置/状态 | `$HOME/.openclaw` | `/home/node/.openclaw` | `OPENCLAW_CONFIG_DIR` |
+| 工作区 | `$HOME/.openclaw/workspace` | `/home/node/.openclaw/workspace` | `OPENCLAW_WORKSPACE_DIR` |
+| Skills | `$HOME/.openclaw/workspace/skills` | `/home/node/.openclaw/workspace/skills` | `OPENCLAW_SKILLS_DIR` |
+
+三个路径都可以在 `.env` 里覆盖；`deploy.sh` 会自动创建目录并修正属主。Skills 直接在宿主机目录编辑，重启后仍然生效；工作区 Skills 优先于托管目录 `~/.openclaw/skills`（后者在配置挂载内）。
 
 ## 2. 关键配置结构
 
@@ -131,7 +145,7 @@ MINIMAX_API_KEY=
 
 | Provider id | 地址变量（留空用默认） | Token 变量 | 已登记模型（`provider/model`） |
 | --- | --- | --- | --- |
-| `deepseek` | `DEEPSEEK_BASE_URL`（默认 `https://api.deepseek.com`） | `DEEPSEEK_API_KEY` | `deepseek/deepseek-v4-flash`、`deepseek/deepseek-v4-pro` |
+| `deepseek` | `DEEPSEEK_BASE_URL`（默认 `https://api.deepseek.com`） | `DEEPSEEK_API_KEY` | `deepseek/deepseek-flash`、`deepseek/deepseek-v4-flash`、`deepseek/deepseek-v4-pro` |
 | `qwen` | `QWEN_BASE_URL`（默认 DashScope 国内 Standard） | `QWEN_API_KEY` | `qwen/qwen3.8-max`、`qwen/qwen3.8-flash`、`qwen/qwen3.5-plus` |
 | `zai` | `ZAI_BASE_URL`（默认 `https://open.bigmodel.cn/api/paas/v4`） | `ZAI_API_KEY` | `zai/glm-5.3`、`zai/glm-5.3-flash`、`zai/glm-5.2` |
 | `moonshot` | `MOONSHOT_BASE_URL`（默认 `https://api.moonshot.cn/v1`） | `MOONSHOT_API_KEY` | `moonshot/kimi-k3`、`moonshot/kimi-k2.7-code` |
@@ -165,6 +179,43 @@ docker compose -f docker-compose.yml exec -T openclaw-gateway \
 
 > 配置里出现 `models.providers.<id>` 时，Doctor 在启动阶段会自动安装匹配的官方插件包（如 `@openclaw/deepseek-provider`），安装结果保存在挂载的配置目录（默认 `$HOME/.openclaw`）下。离线环境需要预先装好或删除这些 provider 条目。
 
+## 4.5 限制 Agent 执行命令（可选）
+
+`tools.exec` 在 `openclaw.json` 里**只接受 `mode`**（`deny|allowlist|ask|auto|full`）；`ask` / `askFallback` 属于 Gateway 的审批文档，不在配置文件里。示例配置已写入：
+
+```json
+"tools": { "exec": { "mode": "ask" } }
+```
+
+`mode: "ask"` 的含义是「allowlist 命中直接执行，未命中时询问」。要让询问真正生效，还要设置审批侧的默认值：
+
+```bash
+# 审批侧：security=allowlist, ask=on-miss, askFallback=deny
+docker compose exec -T openclaw-gateway node dist/index.js \
+  approvals set --gateway --stdin <<'EOF'
+{
+  "version": 1,
+  "defaults": {
+    "security": "allowlist",
+    "ask": "on-miss",
+    "askFallback": "deny"
+  }
+}
+EOF
+
+# 请求侧：写入运行时配置（或直接编辑 $HOME/.openclaw/openclaw.json）
+docker compose exec -T openclaw-gateway node dist/index.js config set tools.exec.mode ask
+```
+
+验证：
+
+```bash
+docker compose exec -T openclaw-gateway node dist/index.js approvals get --gateway
+docker compose exec -T openclaw-gateway node dist/index.js exec-policy show --verbose
+```
+
+注意：`mode` 与旧的 `security` / `ask` 字段不能写在同一个 `tools.exec` 对象里，否则配置校验会拒绝。
+
 ## 5. 切换默认模型
 
 改 `openclaw.json` 的 `agents.defaults.model.primary`，然后 `restart openclaw-gateway`；或在容器里用 CLI 写入：
@@ -175,7 +226,7 @@ docker compose -f docker-compose.yml exec -T openclaw-gateway \
 docker compose -f docker-compose.yml restart openclaw-gateway
 ```
 
-建议把工具能力强的模型设为默认；`deepseek-v4-flash` 便宜，`deepseek-v4-pro` / `qwen3.8-max` / `glm-5.3` 更适合复杂任务。
+建议把工具能力强的模型设为默认；`deepseek-flash` 便宜，`deepseek-v4-pro` / `qwen3.8-max` / `glm-5.3` 更适合复杂任务。
 
 ## 6. 指定模型 API 地址与 token
 
@@ -317,6 +368,8 @@ docker compose -f docker-compose.yml restart openclaw-gateway
 | 现象 | 原因与处理 |
 | --- | --- |
 | 回复报 401/认证失败 | `.env.models` 里对应 key 为空或错误；改完必须重建容器（`up -d --force-recreate`） |
+| 报 `503 ... No available channel for model <id>` 或 `new_api_error` | 不是 OpenClaw 故障：中转站（one-api/new-api）没有该模型或分组无可用渠道。用 `curl -H "Authorization: Bearer $KEY" "$BASE/v1/models"` 查实际模型 id（例如 `deepseek-flash`），改 `models.providers.<id>.models` 和默认模型；`BASE` 要带 `/v1` |
+| Control UI 报 `unauthorized: gateway token missing` | 在 Control UI 设置里粘贴 `.env` 的 `OPENCLAW_GATEWAY_TOKEN`（`grep OPENCLAW_GATEWAY_TOKEN .env`） |
 | 日志出现 `Config auto-restored from last-known-good` | 配置校验失败。原文件已备份为 `openclaw.json.clobbered.<时间戳>`；按日志指出的字段修正后复制回 `openclaw.json` 并重启 |
 | `models list` 看不到自定义模型 | 确认 `models.mode: "merge"`、provider 有 `baseUrl` 和 `models`，且 JSON 合法 |
 | 端口能连但提示无权限 | 从 `.env` 取 `OPENCLAW_GATEWAY_TOKEN`，作为 Bearer token / Dashboard 登录使用 |

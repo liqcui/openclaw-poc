@@ -41,6 +41,7 @@ usage() {
 
 环境变量:
   OPENCLAW_DEPLOY_HEALTH_TIMEOUT  等待健康的秒数，默认 240
+  OPENCLAW_DEPLOY_SHOW_TOKEN      1=总是显示 Gateway token，0=总是隐藏；默认仅在交互终端显示
 
 也可以在命令前直接传入 Key（会写入 .env.models）:
   DEEPSEEK_API_KEY=sk-xxx ./deploy.sh
@@ -102,6 +103,16 @@ hash_file() {
   fi
 }
 
+ensure_dir() {
+  local dir="$1"
+  if [ -d "$dir" ]; then
+    echo "==> 目录已存在: $dir"
+  else
+    mkdir -p "$dir" || die "无法创建目录: $dir"
+    echo "==> 已创建目录: $dir"
+  fi
+}
+
 gen_token() {
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -hex 32
@@ -151,8 +162,12 @@ CONFIG_DIR="$(env_get .env OPENCLAW_CONFIG_DIR || true)"
 [ -n "$CONFIG_DIR" ] || CONFIG_DIR="${HOME}/.openclaw"
 WORKSPACE_DIR="$(env_get .env OPENCLAW_WORKSPACE_DIR || true)"
 [ -n "$WORKSPACE_DIR" ] || WORKSPACE_DIR="$CONFIG_DIR/workspace"
+SKILLS_DIR="$(env_get .env OPENCLAW_SKILLS_DIR || true)"
+[ -n "$SKILLS_DIR" ] || SKILLS_DIR="$WORKSPACE_DIR/skills"
 
-mkdir -p "$CONFIG_DIR" "$WORKSPACE_DIR" || die "无法创建配置目录: $CONFIG_DIR"
+ensure_dir "$CONFIG_DIR"
+ensure_dir "$WORKSPACE_DIR"
+ensure_dir "$SKILLS_DIR"
 
 if [ ! -f "$CONFIG_DIR/openclaw.json" ] || [ "$FORCE_CONFIG" -eq 1 ]; then
   install -m 600 config/openclaw.json.example "$CONFIG_DIR/openclaw.json"
@@ -163,7 +178,7 @@ fi
 
 # 容器内进程以 node（uid 1000）运行，确保它可以读写配置目录
 if [ "$(id -u)" -eq 0 ]; then
-  chown 1000:1000 "$CONFIG_DIR" "$WORKSPACE_DIR" 2>/dev/null ||
+  chown 1000:1000 "$CONFIG_DIR" "$WORKSPACE_DIR" "$SKILLS_DIR" 2>/dev/null ||
     warn "无法 chown $CONFIG_DIR 到 1000:1000，容器可能因权限失败"
   chown 1000:1000 "$CONFIG_DIR/openclaw.json" 2>/dev/null || true
 elif [ "$(id -u)" -ne 1000 ]; then
@@ -172,6 +187,9 @@ fi
 
 if [ "$PREPARE_ONLY" -eq 1 ]; then
   echo "==> 仅准备配置，未启动容器"
+  echo "    配置目录: $CONFIG_DIR"
+  echo "    工作区:   $WORKSPACE_DIR"
+  echo "    Skills:   $SKILLS_DIR"
   exit 0
 fi
 
@@ -221,14 +239,37 @@ done
 
 # 7. 汇报
 keys="$(model_key_count)"
+configured_names=""
+for key in "${MODEL_KEYS[@]}"; do
+  if [ -n "$(env_get .env.models "$key")" ]; then
+    configured_names="${configured_names:+$configured_names, }${key%_API_KEY}"
+  fi
+done
+default_model="$(awk -F'"' '/"primary"/{print $4; exit}' "$CONFIG_DIR/openclaw.json" 2>/dev/null || true)"
+token_value="$(env_get .env OPENCLAW_GATEWAY_TOKEN)"
+show_token="${OPENCLAW_DEPLOY_SHOW_TOKEN:-}"
+if [ "$show_token" = "1" ] || { [ "$show_token" != "0" ] && [ -t 1 ]; }; then
+  token_display="$token_value"
+else
+  token_display="********（非交互输出已隐藏；查看: grep OPENCLAW_GATEWAY_TOKEN .env）"
+fi
 
 echo ""
 echo "==> 部署完成"
-echo "    Gateway:    http://127.0.0.1:${port}/"
-echo "    远程访问:   ssh -L ${port}:127.0.0.1:${port} <user>@<host>"
-echo "    登录 token: grep OPENCLAW_GATEWAY_TOKEN .env"
-echo "    模型验证:   docker compose exec -T openclaw-gateway node dist/index.js models list --all"
-echo "    日志:       docker compose logs -f openclaw-gateway"
+echo "    配置目录:      $CONFIG_DIR"
+echo "    工作区:        $WORKSPACE_DIR"
+echo "    Skills:        $SKILLS_DIR"
+echo "    Gateway:       http://127.0.0.1:${port}/"
+echo "    Gateway token: $token_display"
+echo "    当前模型:      ${default_model:-未设置}"
+echo "    已配置 Key:    ${keys}/${#MODEL_KEYS[@]}${configured_names:+ ($configured_names)}"
+echo "    远程访问:      ssh -L ${port}:127.0.0.1:${port} <user>@<host>"
+echo "    模型验证:      docker compose exec -T openclaw-gateway node dist/index.js models list --all"
+echo "    日志:          docker compose logs -f openclaw-gateway"
+
+if [[ "$token_display" == "$token_value" && -n "$token_value" ]]; then
+  echo "    提示:          token 为敏感信息，请勿粘贴到公开渠道"
+fi
 
 if [ "$keys" -eq 0 ]; then
   warn "尚未配置任何模型 Key；填写 .env.models 后重新执行 ./deploy.sh"

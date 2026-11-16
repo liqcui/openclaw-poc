@@ -23,6 +23,8 @@ services:
     volumes:
       - ${OPENCLAW_CONFIG_DIR:-${HOME:-/tmp}/.openclaw}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR:-${HOME:-/tmp}/.openclaw/workspace}:/home/node/.openclaw/workspace
+      # Skills 目录单独显式挂载，可在宿主机直接编辑
+      - ${OPENCLAW_SKILLS_DIR:-${HOME:-/tmp}/.openclaw/workspace/skills}:/home/node/.openclaw/workspace/skills
     command: ["node", "dist/index.js", "gateway", "--bind", "${OPENCLAW_GATEWAY_BIND:-lan}", "--port", "18789"]
     # 镜像默认健康检查间隔 180s，健康状态会滞后数分钟；这里收紧到 15s
     healthcheck:
@@ -51,6 +53,8 @@ services:
     volumes:
       - ${OPENCLAW_CONFIG_DIR:-${HOME:-/tmp}/.openclaw}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR:-${HOME:-/tmp}/.openclaw/workspace}:/home/node/.openclaw/workspace
+      # Skills 目录单独显式挂载，可在宿主机直接编辑
+      - ${OPENCLAW_SKILLS_DIR:-${HOME:-/tmp}/.openclaw/workspace/skills}:/home/node/.openclaw/workspace/skills
     entrypoint: ["node", "dist/index.js"]
     depends_on:
       - openclaw-gateway

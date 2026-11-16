@@ -20,10 +20,15 @@ cd /opt/openclaw-poc
 1. 检查 Docker 与 Compose v2 插件
 2. 没有 `.env` 时从 `.env.example` 创建，并生成 `OPENCLAW_GATEWAY_TOKEN`
 3. 没有 `.env.models` 时创建 Key 占位符
-4. 首次运行时把 `config/openclaw.json.example` 写入运行时配置目录
-5. 修正配置目录属主（容器内为 uid 1000）
-6. `docker compose up -d`，探测 `/healthz` 直到就绪，打印访问方式
-7. `.env.models` 内容变化时自动重建容器
+4. 自动创建配置目录、工作区、Skills 目录并打印 `已创建`/`已存在`
+5. 首次运行时把 `config/openclaw.json.example` 写入运行时配置目录
+6. 修正目录属主（容器内为 uid 1000）
+7. `docker compose up -d`，探测 `/healthz` 直到就绪
+8. 打印汇总：三个目录路径、Gateway 地址、**Gateway token**、当前模型、已配置 Key 数量
+9. `.env.models` 内容变化时自动重建容器
+
+> token 在交互终端直接显示；重定向/CI 等非交互输出中自动显示为 `********`。
+> 需要强制显示或隐藏：`OPENCLAW_DEPLOY_SHOW_TOKEN=1|0 ./deploy.sh`。
 
 也可以直接带地址和 Key 部署（写入 `.env.models`）：
 
@@ -79,6 +84,16 @@ docker compose exec -T openclaw-gateway node dist/index.js models list --all --p
 ```bash
 git config core.hooksPath .githooks
 ```
+
+## 数据目录（宿主机）
+
+| 内容 | 宿主机 | 容器内 |
+| --- | --- | --- |
+| 配置/状态 | `$HOME/.openclaw`（`.env` 的 `OPENCLAW_CONFIG_DIR`） | `/home/node/.openclaw` |
+| 工作区 | `$HOME/.openclaw/workspace`（`OPENCLAW_WORKSPACE_DIR`） | `/home/node/.openclaw/workspace` |
+| Skills | `$HOME/.openclaw/workspace/skills`（`OPENCLAW_SKILLS_DIR`） | `/home/node/.openclaw/workspace/skills` |
+
+Skills 直接编辑宿主机目录即可，工作区 Skills 的优先级高于托管目录 `~/.openclaw/skills`（仍在配置挂载内）。
 
 ## 目录内容
 
